@@ -1,4 +1,175 @@
 # Neural-rendering-concept-Based-on-DLSS5
+# Neural Rendering on Separate Dies: A Concept for a Streaming SRAM Buffer Between GPU and NPU
+
+## Abstract
+
+NVIDIA’s DLSS 5 Neural Rendering delivers a significant leap in visual realism by processing the final upscaled frame with a neural network. However, this comes at a steep performance cost—often halving frame rates—because the workload runs on shared tensor cores within the GPU.
+
+This paper proposes a conceptual architecture that decouples neural rendering from the main graphics pipeline: a dedicated NPU die on a common substrate with the GPU, connected via a streaming SRAM buffer acting as a low‑latency data bus. The concept leverages existing technologies (3D V‑Cache, Infinity Cache, multi‑die packaging) and primarily requires architectural integration rather than fundamentally new engineering.
+
+---
+
+## 1. The Problem
+
+DLSS 5 Neural Rendering is the final stage of the graphics pipeline, operating on the full output resolution after upscaling. The neural network processes every pixel of the final image to refine lighting, materials, skin, hair, and shadows, delivering a noticeable improvement in visual fidelity.
+
+The trade‑off is severe performance loss. Because the network works on the full upscaled frame, changing Super Resolution modes (Quality → Balanced → Performance) has almost no effect on the load. Tests on the RTX 5090 show nearly a 2× drop in FPS when DLSS 5 is enabled; on an RTX 5070 Ti at 1440p, the drop is approximately 2.6×.
+
+The root cause is hardware contention: tensor cores must share resources with rasterization, ray tracing, DLSS Super Resolution, and Ray Reconstruction. Neural rendering competes directly with the game itself for compute and power.
+
+---
+
+## 2. Existing Approaches and Their Limitations
+
+### 2.1. More Tensor Cores on the GPU Die
+
+This is NVIDIA’s current path. It’s limited by two factors:
+
+- **Die area.** Tensor cores compete for space with CUDA cores, RT cores, and memory controllers. Increasing their share means cutting other blocks.
+- **Power delivery.** Tests show the RTX 5090 hits its power limit at 575 W with a single 12V‑2×6 connector when DLSS 5 is active. The MSI Lightning Z variant with dual connectors and a 1000 W limit loses less FPS. Here, the bottleneck is not compute—it’s power delivery.
+
+### 2.2. Neural Upstream (Neural Network Before Upscaling)
+
+The Neural Upstream mod (by matiasLombo) runs the neural network on the internal render resolution before upscaling, not after. This yields up to a 61% FPS gain on an RTX 4080.
+
+NVIDIA deliberately avoids this approach to preserve image quality. With less input data, the network produces weaker material detail, stronger uncanny valley effects, and more artifacts.
+
+### 2.3. A Second GPU as a Neural Coprocessor
+
+In the Neural Coprocessor project (Marcelo Guibout), one RTX 5060 Ti renders the game and a second processes the frame with DLSS 5. This recovers most of the FPS lost to neural rendering (e.g., from 54 to 91 FPS in DLSS Quality).
+
+Limitations: dual GPUs, dual monitors, ReShade add‑on, PCIe frame transfer. This is not viable for mainstream users.
+
+---
+
+## 3. Proposed Architecture
+
+### 3.1. Core Idea
+
+Separate neural rendering and main graphics at the hardware level: GPU and NPU as distinct dies on a common substrate, linked by a streaming SRAM buffer that acts as a low‑latency interconnect.
+
+### 3.2. Structure
+
+```
+        ┌─────────────────┐
+        │     GPU die     │  Rasterization, Ray Tracing,
+        │   (main)        │  DLSS Super Resolution, Ray Reconstruction,
+        │                 │  Display Controller, HDMI/DP outputs
+        └────────┬────────┘
+                 │ TSV (~10 µm, ~1 ns latency)
+        ┌────────┴────────┐
+        │  SRAM buffer    │  16–32 MB, streaming FIFO
+        │  (active layer) │  Hardware bypass multiplexer
+        └────────┬────────┘
+                 │ TSV (~10 µm, ~1 ns latency)
+        ┌────────┴────────┐
+        │     NPU die     │  Neural rendering only
+        │  (AI‑specialized)│  Tensor‑optimized, single‑model focus
+        │                 │
+        └─────────────────┘
+```
+
+### 3.3. Data Flow
+
+1. GPU renders the frame (raster + RT + upscaling) and writes it in strips to the SRAM buffer.
+2. NPU reads the previous strip, processes it, and writes the result back to the buffer.
+3. A hardware bypass multiplexer routes the result to the GPU’s display controller → screen.
+4. If NPU is disabled, the multiplexer passes the frame directly from GPU to display controller; the buffer is unused.
+
+### 3.4. Key Architectural Choices
+
+**Streaming buffering instead of full‑frame storage.** The SRAM buffer acts as a FIFO queue: 4–8 MB strips enter and exit sequentially. This reduces SRAM requirements from ~100 MB (full frames) to 16–32 MB (streaming strips). For context, NVIDIA AD102 has 48 MB L2 cache; AMD RDNA 3 Infinity Cache reaches up to 128 MB.
+
+**Hardware bypass.** The multiplexer is purely physical, not software‑controlled. When NPU is off (no DLSS 5 support), the frame goes straight from GPU to display controller—zero latency, zero NPU power. Full backward compatibility with existing games is automatic.
+
+**Display controller stays on the GPU.** The NPU has no video outputs. It processes the frame and returns it to the GPU buffer; the GPU’s own display controller handles HDMI/DP, HDCP, VRR, and color spaces. This avoids duplicating complex display logic on the NPU die.
+
+---
+
+## 4. Why SRAM Buffer Instead of a Direct Interconnect
+
+### 4.1. Latency
+
+A direct multi‑die interconnect (e.g., NV‑HBI in server GPUs) offers high bandwidth but adds routing latency. An SRAM buffer connected via TSVs in a 3D stack achieves 1–2 ns access latency—comparable to L2/L3 cache.
+
+### 4.2. Asynchrony
+
+A direct link requires tight synchronization: the GPU must wait for the NPU to be ready. The SRAM buffer decouples them: GPU writes the next strip while NPU processes the previous one. Neither die idles waiting for the other.
+
+### 4.3. Scalability
+
+The NPU die can be upgraded independently of the GPU. New neural models, new process nodes, or larger compute capacity can be introduced by swapping just the NPU die, leaving the GPU unchanged. This mirrors how AMD updates the cache die in Ryzen X3D while keeping the CCD the same.
+
+---
+
+## 5. Comparison of Approaches
+
+| Parameter | Tensor Cores on GPU (current) | Neural Upstream (mod) | 2nd GPU as Coprocessor (mod) | **GPU + NPU + SRAM Buffer (proposed)** |
+|---|---|---|---|---|
+| FPS penalty from neural rendering | ~2× | ~0.4× | ~0× (on render GPU) | **~0× (on GPU)** |
+| Image quality | Maximum | Reduced (uncanny valley, artifacts) | Maximum | **Maximum** |
+| Power consumption | High (resource contention) | Low | High (2 cards) | **Low (NPU optimized)** |
+| Backward compatibility | Full | Full | Limited | **Full (hardware bypass)** |
+| Mass‑market viability | Yes | Yes (as mod) | No | **Yes** |
+| Manufacturing cost | Base | Base | 2× (2 cards) | **+1 die + buffer** |
+
+---
+
+## 6. Technological Readiness
+
+All components of the proposed architecture are already in mass production:
+
+- **3D stacking with TSVs:** AMD 3D V‑Cache—millions of CPUs shipped with an SRAM die stacked over the CCD.
+- **Multi‑die on a substrate:** NVIDIA GB200—two compute dies on a single substrate with NV‑HBI.
+- **Cache as an intermediate buffer:** AMD Infinity Cache—128 MB SRAM on the GPU die acting as a large buffer between compute and memory controller.
+- **NPU in consumer chips:** AMD plans to integrate an NPU into desktop Ryzen 10 000 (Zen 6, 2027), trading integrated graphics for a neural coprocessor.
+- **Dedicated AI accelerators in GPUs:** Apple A19 Pro includes Neural Accelerators inside GPU cores.
+
+No fundamentally new technology is required—only architectural integration, software model design, and NPU optimization for a specific neural model.
+
+---
+
+## 7. Expected Challenges
+
+**Software model.** Even with a hardware bypass, an API is needed to route frames to/from the NPU. A likely path is an extension to NVIDIA’s RTX SDK, transparent to game developers.
+
+**Area and cost.** Three dies (GPU + SRAM buffer + NPU) are more expensive than a single die. The first generation would likely be flagship‑tier. However, streaming buffering (16–32 MB vs 100+ MB) and independent NPU scaling reduce costs compared to a brute‑force GPU enlargement.
+
+**Pipeline latency.** The NPU must process each strip faster than the GPU writes the next one. At 90 FPS and 4 MB strips for 1440p, that’s ~0.5 ms per strip. If the NPU lags, a 1–2 frame delay occurs. This is acceptable for single‑player games but not for competitive esports.
+
+---
+
+## 8. Conclusion
+
+DLSS 5 Neural Rendering represents a qualitative leap in visual quality, but its current implementation on shared tensor cores is inherently inefficient: it causes a ~2× FPS drop and pushes flagship GPUs to their power limits.
+
+The proposed architecture—a dedicated NPU die on the same substrate, linked to the GPU via a streaming SRAM buffer—addresses both issues without sacrificing image quality. All required technologies already exist in mass production. What’s needed is architectural commitment, not scientific breakthrough.
+
+This concept is not a full engineering design; detailed calculations of die area, power budget, and precise latency require RTL‑level simulation. The goal is to clearly articulate a promising direction that the industry is likely already considering, and to give it a public formulation.
+
+---
+
+## References
+
+1. NVIDIA. *DLSS 5: 3D‑Guided Neural Rendering*. nvidia.com  
+2. TweakTown. *DLSS 5 in NBA 2K27: Performance Analysis*. tweaktown.com  
+3. GameGPU. *DLSS 5 Neural Rendering: 2× FPS Difference in The Witcher 3*. gamegpu.com  
+4. ixbt.com. *DLSS 5 Activation Reduces Performance by 2.5×*. ixbt.com  
+5. TechPowerUp. *Early DLSS 5 Testing: RTX 5090 Power Connector Bottleneck*. techpowerup.com  
+6. TechPowerUp. *Modders Rework DLSS 5 Pipeline for Performance Boost*. techpowerup.com  
+7. TechSpot. *Modders Found Two Ways to Make DLSS 5 Faster*. techspot.com  
+8. TechPowerUp. *Mod Revives Multi‑GPU with Dedicated DLSS 5 GPU*. techpowerup.com  
+9. Wikipedia. *RDNA (microarchitecture)*. en.wikipedia.org  
+10. Wikipedia. *CPU cache*. en.wikipedia.org  
+11. Wikipedia. *AMD 3D V‑Cache*. en.wikipedia.org  
+12. Wikipedia. *Nvidia Blackwell*. en.wikipedia.org  
+13. DNS Club. *AMD to Drop Integrated Graphics for NPU in Ryzen 10 000*. club.dns-shop.ru  
+14. Articsledge. *Neural Processing Unit (NPU)*. articsledge.com  
+
+---
+
+*Author is a conceptual thinker, not an ASIC architect. This paper presents an architectural idea, not a complete engineering design. Die area, power budget, and exact latency require RTL‑level simulation. The purpose of this publication is to publicly anchor the idea and give it a chance to reach engineering teams capable of implementing it.*
+
 # Нейронный рендеринг на раздельных кристаллах: концепция потокового SRAM-буфера между GPU и NPU
 
 ## Аннотация
