@@ -170,6 +170,66 @@ This concept is not a full engineering design; detailed calculations of die area
 
 *Author is a conceptual thinker, not an ASIC architect. This paper presents an architectural idea, not a complete engineering design. Die area, power budget, and exact latency require RTL‑level simulation. The purpose of this publication is to publicly anchor the idea and give it a chance to reach engineering teams capable of implementing it.*
 
+Вот черновик раздела для README. Я написал его на английском (раз это для GitHub), но если нужен русский вариант — скажи, переведу.
+
+---
+
+## Photonic Implementation: From Chiplet to Optical Compute
+
+The neural-chiplet concept naturally extends into silicon photonics. Rather than waiting for a fully photonic GPU, the chiplet architecture allows photonics to enter incrementally — as a dedicated compute tile alongside electronic ones.
+
+### Why Chiplets Are the Ideal Bridge
+
+- **Mixed process nodes.** Photonic components work best at 45–90 nm (larger waveguides), while electronic logic benefits from 3 nm. A monolithic die can't mix these. A chiplet package can.
+- **Incremental adoption.** You don't replace the entire GPU — you add a photonic tile where it matters most: matrix multiplication for neural rendering.
+- **Independent scaling.** Memory, compute, and I/O tiles can be upgraded separately.
+
+### Proposed Architecture
+
+| Tile | Technology | Function |
+|------|-----------|----------|
+| Render tile | Electronic (3 nm) | Rasterization, ray tracing, geometry |
+| Neural tile | Photonic (matrix compute on light) | DLSS, neural shaders, AI upscaling |
+| Memory tile | Electronic (HBM / DRAM) | Frame buffer, weights, textures |
+| Interconnect | Optical (silicon waveguides on interposer) | Ultra-low-latency data transfer between all tiles |
+
+### What Already Exists (as of 2026)
+
+Each component of this architecture is already in development or production — just not yet combined this way:
+
+- **Celestial AI** (backed by NVIDIA and AMD): split compute and memory tiles connected by a photonic fabric at 14.4 Tbit/s. Memory scales independently from compute. — [Kisaco Research presentation](https://www.kisacoresearch.com/sites/default/files/presentations/preet_virk_-_celestial_ai_-_photonic_fabrictm_based_scale-up_network.pdf), [The Next Platform](https://www.nextplatform.com/compute/2024/04/04/celestial-ai-wants-to-break-the-memory-wall-fuse-hbm-with-ddr5/1646782)
+
+- **Ayar Labs** (MIT spinoff, \$3.8B valuation as of March 2026): photonic chiplet interposers mounted directly on existing processors. Their TeraPHY chip delivers 8 Tbit/s at 10 ns latency — without replacing the electronic GPU. — [andrew.ooo](https://andrew.ooo/posts/ayar-labs-500m-series-e-photonic-ai-chips/)
+
+- **NVIDIA IEDM 2024 concept**: GPU compute tiles in a 3D stack, DRAM on top, 12 silicon-photonic channels between them. Compute and memory are electronic; the link is optical. — [TechPowerUp](https://www.techpowerup.com/329651/nvidia-shows-future-ai-accelerator-design-silicon-photonics-and-dram-on-top-of-compute)
+
+- **Neurophos** (backed by Bill Gates' fund): optical transistors 10,000× smaller than previous designs, built using existing semiconductor processes. Their Tulkas T100 chip runs at 56 GHz and is claimed to outperform NVIDIA Vera Rubin NVL72 in FP4/INT4 workloads. Mass production target: ~2028. — [Tom's Hardware](https://www.tomshardware.com/tech-industry/semiconductors/bill-gates-backed-silicon-photonics-startup-develops-optical-transistors-10-000x-smaller-than-current-tech-optical-chip-can-process-1-000-x-1-000-multiplication-matrices)
+
+- **Purdue University**: single-photon photonic transistors compatible with CMOS fabrication, operating at room temperature. — [SecurityLab](https://www.securitylab.ru/news/566420.php)
+
+- **Imec**: first successful epitaxial growth of GaAs lasers directly on 300 mm silicon wafers in a standard CMOS line. No more die-to-wafer bonding for on-chip lasers. — [TechXplore](https://techxplore.com/news/2025-01-silicon-photonics-advance-paves-effective.html)
+
+- **PICNIC** (research paper, November 2025): 3D-stacked chiplets with RRAM memory and photonic silicon interconnect — 57× energy efficiency improvement over conventional GPU. — [arXiv](https://arxiv.org/pdf/2511.04036)
+
+### What's Still Missing
+
+- **Optical memory.** All current photonic chips use electronic memory. Berkeley Lab demonstrated optical bistability in nanoparticles (nanoscale optical memory), but practical application is years away. — [ScienceDaily](https://www.sciencedaily.com/releases/2025/02/250226125021.htm)
+
+- **Precision.** Photonic compute is analog, not digital. For neural rendering (8-bit tolerance) this is acceptable. For general-purpose compute — not yet.
+
+- **Fully photonic consumer GPU.** Not before 2030–2035. But the chiplet approach doesn't require waiting for that.
+
+### The Key Insight
+
+The neural-chiplet concept doesn't need a fully photonic GPU to work. It needs:
+
+1. A photonic tile that handles matrix math (DLSS / neural shaders) — **already exists** (Neurophos, PICNIC)
+2. An optical interconnect between tiles — **already exists** (Ayar Labs, Celestial AI, NVIDIA IEDM concept)
+3. Electronic tiles for rasterization and memory — **already standard**
+
+The industry has all the pieces. What's missing is someone putting them together in a consumer GPU package — which is exactly what this concept proposes.
+
+
 # Нейронный рендеринг на раздельных кристаллах: концепция потокового SRAM-буфера между GPU и NPU
 
 ## Аннотация
@@ -338,3 +398,65 @@ DLSS 5 Neural Rendering — не косметическое улучшение, 
 ---
 
 *Автор — не инженер-архитектор, а концептуальный мыслитель. Статья отражает архитектурную идею, а не инженерный расчёт. Расчёты площади, энергобаланса и задержки требуют симуляции на уровне RTL. Цель публикации — дать идее публичное закрепление и шанс дойти до инженерных команд, способных её реализовать.*
+## Фотонная реализация: от чиплета к оптическим вычислениям
+
+Концепция нейро-чиплета естественным образом ложится на кремниевую фотонику. Вместо того чтобы ждать появления полностью фотонного GPU, чиплетная архитектура позволяет внедрять фотонику поэтапно — в виде отдельного вычислительного тайла рядом с электронными.
+
+### Почему чиплеты — идеальный переходный путь
+
+- **Разные технологические нормы.** Фотонные компоненты лучше работают на 45–90 нм (из‑за больших волноводов), а электронная логика выигрывает от 3 нм. В монолитном кристалле совместить это нельзя, а в чиплетной упаковке — вполне.
+- **Поэтапное внедрение.** Не нужно заменять весь GPU целиком: достаточно добавить фотонный тайл там, где он даёт максимальный эффект, — для матричных вычислений под нейрорендер.
+- **Независимое масштабирование.** Тайлы памяти, вычислений и ввода‑вывода можно обновлять отдельно — как комплектующие в ПК, только на уровне кристалла.
+
+---
+
+### Предлагаемая архитектура
+
+| Тайл | Технология | Функция |
+| --- | --- | --- |
+| Рендер‑тайл | Электроника (3 нм) | Растеризация, трассировка лучей, геометрия |
+| Нейро‑тайл | Фотоника (матричные вычисления на свете) | DLSS, нейрошейдеры, AI‑апскейл |
+| Memory‑тайл | Электроника (HBM / DRAM) | Буфер кадра, веса нейросетей, текстуры |
+| Интерконнект | Оптика (кремниевые волноводы на интерпозере) | Передача данных между всеми тайлами с ультранизкой задержкой |
+
+---
+
+### Что уже существует (по состоянию на 2026 год)
+
+Каждый компонент этой архитектуры уже находится в разработке или производстве — просто пока их не собрали вместе именно в таком виде.
+
+- **Celestial AI** (при поддержке NVIDIA и AMD): раздельные тайлы вычислений и памяти, соединённые фотонной шиной на скорости 14,4 Тбит/с. Память масштабируется независимо от вычислений.  
+  Источники: [презентация Kisaco Research](https://www.kisacoresearch.com/sites/default/files/presentations/preet_virk_-_celestial_ai_-_photonic_fabrictm_based_scale-up_network.pdf), [The Next Platform](https://www.nextplatform.com/compute/2024/04/04/celestial-ai-wants-to-break-the-memory-wall-fuse-hbm-with-ddr5/1646782).
+- **Ayar Labs** (спин‑офф MIT, оценка \$3,8 млрд на март 2026): фотонные чиплеты‑прослойки, которые устанавливаются прямо на корпус существующего процессора. Их чип TeraPHY обеспечивает 8 Тбит/с при задержке 10 нс — без замены самого электронного GPU.  
+  Источник: [andrew.ooo](https://andrew.ooo/posts/ayar-labs-500m-series-e-photonic-ai-chips/).
+- **Концепт NVIDIA на IEDM 2024**: вычислительные тайлы GPU в 3D‑стеке, сверху — DRAM, между ними — 12 кремний‑фотонных каналов. Вычисления и память остаются электронными, связь — оптической.  
+  Источник: [TechPowerUp](https://www.techpowerup.com/329651/nvidia-shows-future-ai-accelerator-design-silicon-photonics-and-dram-on-top-of-compute).
+- **Neurophos** (при финансировании фонда Билла Гейтса): оптические транзисторы в 10 000 раз меньше прежних решений, созданные по существующим полупроводниковым техпроцессам. Чип Tulkas T100 работает на частоте 56 ГГц и, по заявлениям, превосходит NVIDIA Vera Rubin NVL72 в задачах FP4/INT4. Целевой срок массового производства — примерно 2028 год.  
+  Источник: [Tom’s Hardware](https://www.tomshardware.com/tech-industry/semiconductors/bill-gates-backed-silicon-photonics-startup-develops-optical-transistors-10-000x-smaller-than-current-tech-optical-chip-can-process-1-000-x-1-000-multiplication-matrices).
+- **Университет Пэрдью**: фотонные транзисторы на одиночных фотонах, совместимые с КМОП‑процессами, работают при комнатной температуре.  
+  Источник: [SecurityLab](https://www.securitylab.ru/news/566420.php).
+- **Imec**: впервые удалось вырастить GaAs‑лазеры прямо на 300‑мм кремниевых пластинах в стандартной КМОП‑линии — без отдельного приклеивания кристаллов.  
+  Источник: [TechXplore](https://techxplore.com/news/2025-01-silicon-photonics-advance-paves-effective.html).
+- **Проект PICNIC** (научная публикация, ноябрь 2025): 3D‑стек чиплетов с RRAM‑памятью и кремний‑фотонным интерконнектом — улучшение энергоэффективности в 57 раз по сравнению с обычными GPU.  
+  Источник: [arXiv](https://arxiv.org/pdf/2511.04036).
+
+---
+
+### Чего пока не хватает
+
+- **Оптическая память.** Все текущие фотонные чипы используют электронную память. В Berkeley Lab показали оптическую бистабильность в наночастицах (наноразмерная оптическая память), но до практического применения ещё далеко.  
+  Источник: [ScienceDaily](https://www.sciencedaily.com/releases/2025/02/250226125021.htm).
+- **Точность.** Фотонные вычисления — аналоговые, а не цифровые. Для нейрорендера (где допустима точность 8 бит) это приемлемо, для универсальных вычислений — пока нет.
+- **Полностью фотонный потребительский GPU.** Не раньше 2030–2035 годов. Но чиплетный подход не требует ждать этого момента.
+
+---
+
+### Ключевая идея
+
+Концепции нейро‑чиплета не нужен полностью фотонный GPU, чтобы быть рабочей. Ей нужно:
+
+1. **Фотонный тайл для матричной математики** (DLSS, нейрошейдеры) — уже существует (Neurophos, PICNIC).
+2. **Оптический интерконнект между тайлами** — уже существует (Ayar Labs, Celestial AI, концепт NVIDIA на IEDM).
+3. **Электронные тайлы для растеризации и памяти** — это уже стандарт индустрии.
+
+У индустрии уже есть все детали. Не хватает лишь того, кто соберёт их вместе в потребительском GPU‑пакете — именно это и предлагает твой концепт.
