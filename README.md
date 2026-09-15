@@ -170,7 +170,6 @@ This concept is not a full engineering design; detailed calculations of die area
 
 *Author is a conceptual thinker, not an ASIC architect. This paper presents an architectural idea, not a complete engineering design. Die area, power budget, and exact latency require RTL‑level simulation. The purpose of this publication is to publicly anchor the idea and give it a chance to reach engineering teams capable of implementing it.*
 
-Вот черновик раздела для README. Я написал его на английском (раз это для GitHub), но если нужен русский вариант — скажи, переведу.
 
 ---
 
@@ -228,7 +227,68 @@ The neural-chiplet concept doesn't need a fully photonic GPU to work. It needs:
 3. Electronic tiles for rasterization and memory — **already standard**
 
 The industry has all the pieces. What's missing is someone putting them together in a consumer GPU package — which is exactly what this concept proposes.
+## Optical Broadcast: Why Photonics Solves the Data‑Distribution Bottleneck
 
+One of the unique advantages of photonic computing—unavailable to pure electronics—is the ability to **broadcast identical data to multiple compute units simultaneously** without copying, buffering, or consuming extra memory bandwidth.
+
+In an electronic system, feeding the same frame to multiple AI blocks (DLSS, Frame Generation, Ray Reconstruction, neural shaders) requires:
+- Multiple reads from memory, or  
+- Explicit data duplication across buses and buffers,  
+which costs energy, latency, and die area. The more consumers you have, the more copies you need, and the heavier the memory traffic becomes.
+
+Photonics bypasses this by using **optical broadcast**: a single optical signal is split into multiple identical copies via beam splitters. With $j$ splitters, you can generate $2^j$ copies of the same data stream. Each copy travels simultaneously to a different compute block—**with no additional memory access, no serialization, and no buffering**.
+
+---
+
+### How This Enables True Parallelism for Neural Rendering
+
+In your proposed architecture, the render tile produces a frame that must be consumed by several neural processing units:
+
+- **DLSS** – for upscaling  
+- **Frame Generation** – for interpolating intermediate frames  
+- **Ray Reconstruction** – for denoising and ray-tracing cleanup  
+- **Neural shaders** – for material and lighting enhancements  
+
+With electronic interconnects, each unit must receive its own copy of the frame, leading to repeated memory reads and bus contention. In a photonic setup, the render tile outputs the frame as an optical signal; a compact on‑chip splitter distributes it **simultaneously** to all neural tiles. All blocks start processing the same frame at virtually the same instant.
+
+This eliminates the “fan‑out” penalty: the cost of distributing data does not grow with the number of consumers.
+
+---
+
+### Real‑World Implementations Already Using This Principle
+
+- **Broadcast‑and‑Weight Protocol** (proposed 2014, demonstrated 2017): Input data is broadcast across multiple wavelengths via electro‑optic modulation, and each copy is independently weighted in its own channel. This enables one input to drive many parallel computations without data duplication.  
+  Source: [HAL Science](https://hal.science/hal-04580418/document)
+
+- **Lightening‑Transformer** (arXiv 2024): A photonic accelerator for transformers that explicitly leverages optical broadcast to share operands across cores. The paper states: “We unleash the natural optical broadcast capability to enable intra‑core and inter‑core operand sharing.” One tensor is distributed to multiple compute cores as light, not as copied data.  
+  Source: [arXiv](https://arxiv.org/html/2305.19533)
+
+- **Photonic Tensor Core** (Nature 2021): Uses wavelength‑division multiplexing (WDM) to apply one matrix to **four input vectors simultaneously**, with each vector encoded on a different wavelength. This achieves 16 multiply‑accumulate operations in a single cycle.  
+  Source: [ResearchGate](https://www.researchgate.net/publication/339015092_Parallel_convolution_processing_using_an_integrated_photonic_tensor_core)
+
+These examples show that the industry is already treating optical broadcast not as a curiosity, but as a core mechanism for efficient parallel computation.
+
+---
+
+### Architectural Diagram (ASCII)
+
+```
+[Render Tile] ──→ [Optical Splitter]
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+   [DLSS Tile]   [FrameGen Tile]  [RayRecon Tile]
+          │            │            │
+          └────────────┼────────────┘
+                        ↓
+              [Result Assembly] → Display
+```
+
+The render tile emits a single optical representation of the frame. The splitter creates simultaneous copies, each feeding a dedicated neural tile. All tiles operate in parallel on the same input, with no serialization or memory bottleneck.
+
+Additionally, photonic waveguides can cross each other with minimal crosstalk—unlike metal wires, which require complex routing and buffering to avoid interference. This makes the physical layout of such broadcast networks significantly simpler and more scalable.
+
+---
 
 # Нейронный рендеринг на раздельных кристаллах: концепция потокового SRAM-буфера между GPU и NPU
 
@@ -459,4 +519,64 @@ DLSS 5 Neural Rendering — не косметическое улучшение, 
 2. **Оптический интерконнект между тайлами** — уже существует (Ayar Labs, Celestial AI, концепт NVIDIA на IEDM).
 3. **Электронные тайлы для растеризации и памяти** — это уже стандарт индустрии.
 
-У индустрии уже есть все детали. Не хватает лишь того, кто соберёт их вместе в потребительском GPU‑пакете — именно это и предлагает твой концепт.
+## Оптический broadcast: как фотоника решает проблему распределения данных
+
+Одно из уникальных преимуществ фотонных вычислений — то, чего принципиально нет у чистой электроники: возможность **одновременно передавать одни и те же данные сразу в несколько вычислительных блоков** без копирования, буферизации и расхода пропускной способности памяти.
+
+В электронной системе, чтобы подать один и тот же кадр на несколько ИИ‑блоков (DLSS, генерацию кадров, реконструкцию лучей, нейрошейдеры), приходится:
+* либо многократно считывать данные из памяти,  
+* либо явно дублировать их по шинам и буферам.  
+
+Каждое такое копирование — это лишняя энергия, задержка и занятая площадь кристалла. Чем больше потребителей, тем больше копий нужно создать — и тем сильнее растёт нагрузка на память.
+
+Фотоника обходит эту проблему за счёт **оптического broadcast**: один световой сигнал делится на несколько идентичных копий с помощью делителей (beam splitters). При наличии $j$ делителей можно получить $2^j$ копий одного потока данных. Каждая копия одновременно уходит в свой вычислительный блок — **без дополнительных обращений к памяти, без сериализации и без буферов**.
+
+---
+
+### Как это даёт настоящий параллелизм для нейрорендера
+
+В твоей предложенной архитектуре рендер‑тайл формирует кадр, который сразу нужен нескольким нейроблокам:
+
+* **DLSS** — для апскейла;  
+* **Frame Generation** — для генерации промежуточных кадров;  
+* **Ray Reconstruction** — для шумоподавления и «очистки» трассировки лучей;  
+* **Нейрошейдеры** — для улучшения материалов и освещения.
+
+При электронных соединениях каждый блок должен получить свою копию кадра — а значит, будут повторяющиеся чтения из памяти и конкуренция за шину. В фотонной схеме рендер‑тайл выдаёт кадр как оптический сигнал, а компактный делитель на кристалле **одновременно** распределяет его по всем нейротайлам. Все блоки начинают обработку одного и того же кадра практически в один и тот же момент.
+
+Так исчезает «штраф за разветвление»: стоимость раздачи данных не растёт с увеличением числа потребителей.
+
+---
+
+### Реальные реализации, где уже используют этот принцип
+
+* **Протокол Broadcast‑and‑Weight** (предложен в 2014, продемонстрирован в 2017): входные данные транслируются сразу на несколько длин волн с помощью электрооптической модуляции, и каждая копия независимо взвешивается в своём канале. Это позволяет одному входу управлять множеством параллельных вычислений без дублирования данных.  
+  Источник: [HAL Science](https://hal.science/hal-04580418/document)
+
+* **Lightening‑Transformer** (arXiv, 2024) — архитектура фотонного ускорителя для трансформеров, которая прямо опирается на оптический broadcast для совместного использования операндов между ядрами. В статье так и сказано: «Мы используем естественную возможность оптического broadcast, чтобы обеспечить совместное использование операндов внутри и между ядрами». Один тензор распределяется по нескольким вычислительным ядрам как свет, а не как скопированные данные.  
+  Источник: [arXiv](https://arxiv.org/html/2305.19533)
+
+* **Фотонный тензорный ядро** (Nature, 2021) использует частотное мультиплексирование (WDM): одна и та же матрица применяется сразу к **четырём входным векторам**, причём каждый вектор закодирован на своей длине волны, и все они проходят через одну и ту же физическую матрицу. Так за один такт выполняется 16 операций умножения‑накопления.  
+  Источник: [ResearchGate](https://www.researchgate.net/publication/339015092_Parallel_convolution_processing_using_an_integrated_photonic_tensor_core)
+
+Эти примеры показывают, что индустрия уже рассматривает оптический broadcast не как экзотику, а как базовый механизм для эффективных параллельных вычислений.
+
+---
+
+### Архитектурная схема (ASCII)
+
+```
+[Рендер‑тайл] ──→ [Оптический делитель]
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+   [DLSS‑тайл]   [FrameGen‑тайл]  [RayRecon‑тайл]
+          │            │            │
+          └────────────┼────────────┘
+                        ↓
+              [Сборка результата] → Дисплей
+```
+
+Рендер‑тайл испускает одно оптическое представление кадра. Делитель создаёт одновременные копии, каждая из которых идёт в свой нейротайл. Все тайлы работают параллельно над одним и тем же входом — без сериализации и узкого места в памяти.
+
+Кроме того, фотонные волноводы могут пересекаться друг с другом с минимальными наводками — в отличие от металлических проводников, которым нужны сложные маршруты и буферы, чтобы избежать помех. Это делает физическую разводку таких широковещательных сетей заметно проще и масштабируемее.
