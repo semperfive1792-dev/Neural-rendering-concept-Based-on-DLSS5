@@ -2,7 +2,7 @@
 
 > **A unified architecture concept that replaces the entire digital display chain — from GPU compute to the human eye — with a single analog photonic pathway.**
 
-**Author:** [Author Name]  
+**Author:** Semperfive (Alexander Negots) 
 **Date:** September 2026  
 **License:** Creative Commons Attribution 4.0 International (CC BY 4.0) — free to use, implement, and commercialize with attribution. This document is published as a defensive publication.
 
