@@ -57,6 +57,15 @@ Photonic Neural Tile → optical splitter → optical waveguide → laser array 
 | Interface licensing | HDMI ($10K/yr + $0.05/port), HDCP, VESA | $0 (open analog optical standard) |
 | Display manufacturing | $10+ billion TFT fab (Gen 10.5) | Assembly line ($100–500M) |
 
+## Simulation
+
+A latency and power budget model comparing the conventional digital display
+chain with the proposed photonic pipeline is available in `simulation/`.
+
+Run: `python3 simulation/latency_model.py`
+
+Results: 93.5% latency reduction, 76.7% power reduction (architectural model).
+
 ---
 
 ## Do the technologies exist?
